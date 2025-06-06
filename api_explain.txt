@@ -1,0 +1,234 @@
+## Localization Management API Endpoints
+
+This document describes the available backend API endpoints for managing localization keys and their translations. These endpoints are implemented using FastAPI and interact with a Supabase PostgreSQL database.
+
+**Base URL:** `http://127.0.0.1:8000` (when running locally)
+
+---
+
+### 1. Get Translation Key by ID
+
+- **HTTP Method:** `GET`
+- **Endpoint:** `/translation-keys/{key_id}`
+- **Purpose:** Retrieve a single translation key and its associated translations using its unique ID.
+- **How to Call:** Send a GET request to the endpoint, replacing `{key_id}` with the actual ID of the translation key you want to retrieve.
+- **Example Request:** `GET http://127.0.0.1:8000/translation-keys/your_key_id_here`
+- **Expected Response (Success - 200 OK):** Returns a JSON object representing the `TranslationKey` model.
+
+```json
+{
+    "id": "string",
+    "key": "string",
+    "category": "string",
+    "description": "string or null",
+    "translations": {
+        "language_code": {
+            "value": "string",
+            "updated_at": "string (ISO 8601 datetime)",
+            "updated_by": "string"
+        }
+        // ... more language codes
+    },
+    "created_at": "string (ISO 8601 datetime)",
+    "updated_at": "string (ISO 8601 datetime)"
+}
+```
+
+- **Expected Response (Not Found - 404 Not Found):**
+
+```json
+{
+    "detail": "Translation key not found"
+}
+```
+
+---
+
+### 2. List Translation Keys
+
+- **HTTP Method:** `GET`
+- **Endpoint:** `/translation-keys`
+- **Purpose:** Retrieve a list of translation keys. Supports filtering by category and searching by key, as well as pagination.
+- **How to Call:** Send a GET request to the endpoint. You can include the following optional query parameters:
+    - `category` (string): Filter keys by their category.
+    - `search` (string): Search for keys containing the specified string (case-insensitive). Supabase `ilike` is used.
+    - `limit` (integer, default=100): Maximum number of results to return.
+    - `offset` (integer, default=0): Number of results to skip for pagination.
+- **Example Requests:**
+    - Get all keys: `GET http://127.0.0.1:8000/translation-keys`
+    - Filter by category and search: `GET http://127.0.0.1:8000/translation-keys?category=buttons&search=save`
+    - With pagination: `GET http://127.0.0.1:8000/translation-keys?limit=10&offset=20`
+- **Expected Response (Success - 200 OK):** Returns a JSON array of `TranslationKey` objects.
+
+```json
+[
+    {
+        "id": "string",
+        "key": "string",
+        "category": "string",
+        "description": "string or null",
+        "translations": { ... }, // Same structure as above
+        "created_at": "string (ISO 8601 datetime)",
+        "updated_at": "string (ISO 8601 datetime)"
+    }
+    // ... more TranslationKey objects
+]
+```
+
+---
+
+### 3. Create Translation Key
+
+- **HTTP Method:** `POST`
+- **Endpoint:** `/translation-keys`
+- **Purpose:** Create a new translation key in the database.
+- **How to Call:** Send a POST request to the endpoint with a JSON request body representing the new translation key's details.
+- **Request Body (Application/json):** Requires `key` and `category`. `description` is optional.
+
+```json
+{
+    "key": "string (required, must be unique)",
+    "category": "string (required)",
+    "description": "string or null (optional)"
+}
+```
+
+- **Example Request Body:**
+
+```json
+{
+    "key": "homepage.title",
+    "category": "titles",
+    "description": "The main title on the homepage"
+}
+```
+
+- **Expected Response (Success - 201 Created):** Returns the newly created `TranslationKey` object, including its generated `id`.
+
+```json
+{
+    "id": "string (uuid)",
+    "key": "string",
+    "category": "string",
+    "description": "string or null",
+    "translations": {}, // Initially empty
+    "created_at": "string (ISO 8601 datetime)",
+    "updated_at": "string (ISO 8601 datetime)"
+}
+```
+- **Expected Response (Conflict - 409 Conflict):** If a key with the same `key` value already exists.
+
+```json
+{
+    "detail": "Translation key 'your_key_here' already exists"
+}
+```
+
+---
+
+### 4. Update Translation Key
+
+- **HTTP Method:** `PATCH`
+- **Endpoint:** `/translation-keys/{key_id}`
+- **Purpose:** Update an existing translation key. You can update the key, category, description, or add/modify translations.
+- **How to Call:** Send a PATCH request to the endpoint, replacing `{key_id}` with the ID of the key to update. Include a JSON request body with the fields you want to modify.
+- **Request Body (Application/json):** Contains the fields to update. Include `translations` to add or modify translations for specific languages.
+
+```json
+{
+    "key": "string (optional)",
+    "category": "string (optional)",
+    "description": "string or null (optional)",
+    "translations": { // optional
+        "language_code": { // e.g., "en_US"
+            "value": "string (required)",
+            "updated_by": "string (required)"
+            // updated_at is automatically handled by backend/database trigger
+        }
+        // ... more language codes
+    }
+}
+```
+
+- **Example Request Body:**
+
+```json
+{
+    "description": "The main title on the homepage (updated)",
+    "translations": {
+        "en_US": {
+            "value": "Welcome to the App!",
+            "updated_by": "frontend_user_1"
+        },
+        "es_ES": {
+            "value": "¡Bienvenido a la aplicación!",
+            "updated_by": "frontend_user_1"
+        }
+    }
+}
+```
+
+- **Expected Response (Success - 200 OK):** Returns the updated `TranslationKey` object.
+
+```json
+{
+    "id": "string",
+    "key": "string",
+    "category": "string",
+    "description": "string or null",
+    "translations": { ... }, // Updated translations
+    "created_at": "string (ISO 8601 datetime)",
+    "updated_at": "string (ISO 8601 datetime)" // This will be updated by the database trigger
+}
+```
+
+- **Expected Response (Not Found - 404 Not Found):**
+
+```json
+{
+    "detail": "Translation key not found"
+}
+```
+
+---
+
+### 5. Delete Translation Key
+
+- **HTTP Method:** `DELETE`
+- **Endpoint:** `/translation-keys/{key_id}`
+- **Purpose:** Delete a translation key from the database.
+- **How to Call:** Send a DELETE request to the endpoint, replacing `{key_id}` with the ID of the translation key to delete.
+- **Example Request:** `DELETE http://127.0.0.1:8000/translation-keys/your_key_id_here`
+- **Expected Response (Success - 204 No Content):** The request is successful, and there is no response body.
+- **Expected Response (Not Found - 404 Not Found):**
+
+```json
+{
+    "detail": "Translation key not found"
+}
+```
+
+---
+
+### 6. Get Translation Completion Stats
+
+- **HTTP Method:** `GET`
+- **Endpoint:** `/translation-keys/stats/completion`
+- **Purpose:** Get the percentage of translation completion for each language across all translation keys.
+- **How to Call:** Send a GET request to the endpoint.
+- **Example Request:** `GET http://127.0.0.1:8000/translation-keys/stats/completion`
+- **Expected Response (Success - 200 OK):** Returns a JSON object where keys are language codes and values are the completion percentages (float).
+
+```json
+{
+    "en_US": 95.5,
+    "es_ES": 78.0,
+    "fr_FR": 60.0,
+    "de_DE": 0.0
+    // ... more language codes and their percentages
+}
+```
+
+---
+
+This document covers the primary API endpoints for interacting with the localization data. You can use these details to integrate the frontend application with the backend. 
